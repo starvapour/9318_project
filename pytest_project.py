@@ -111,10 +111,10 @@ def query(queries, codebooks, codes, T):
 		ADs = []
 		# caculate distance for P parts
 		for i in range(P):
-			index = [num for num in range(K)]
+			index = np.arange(0, K, 1)
 			distance = cdist(codebooks[i], [query_parts[i]], 'cityblock')
-			AD_part = [[index[i], distance[i][0]] for i in range(K)]
-			AD_part.sort(key = return_distance)
+			AD_part = np.dstack([index, np.dstack(distance)[0][0]])[0]
+			AD_part = AD_part[np.lexsort(AD_part.T)]
 			ADs.append(AD_part)
 		
 		# use location_index to make the current location index in each AD
