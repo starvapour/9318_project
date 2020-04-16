@@ -1,21 +1,19 @@
 #coding=utf-8
 
-'''
-L1正则化是指权值向量ww中各个元素的绝对值之和
-L2正则化是指权值向量ww中各个元素的平方和然后再求平方根
-'''
 #########################################################################
 
 # 作业部分
 import scipy
 import numpy as np
-from scipy.cluster.vq import vq,whiten
+from scipy.cluster.vq import vq
+from scipy.spatial.distance import cdist
 
 # --------------------- Part 1 ---------------------
-
+'''
 # caculate L1 distance
 def L1_dis(v1, v2):
 	return np.linalg.norm(v1-v2,ord=1)
+'''
 	
 # kmeans function, use L1 distance
 def kmeans(data, K, max_iter, centers):
@@ -33,14 +31,9 @@ def kmeans(data, K, max_iter, centers):
 		# find the nearest center for each vector
 		# then add vector into cluster
 		for vector in data:
-			cluster_num = 0
-			min_distance = L1_dis(vector, centers[0])
-			# caculate distance between the vector and each center
-			for i in range(1, len(centers)):
-				distance = L1_dis(vector, centers[i])
-				if distance < min_distance:
-					min_distance = distance
-					cluster_num = i
+			#print(centers.shape)
+			distances = cdist(centers, [vector], 'cityblock')
+			cluster_num = np.unravel_index(np.argmin(distances),distances.shape)[0]
 			# after get the final cluster_num
 			clusters[cluster_num].append(vector)
 		
@@ -52,11 +45,6 @@ def kmeans(data, K, max_iter, centers):
 				if not (new_center == centers[i]).all():
 					centers[i] = new_center
 					change_exist = True
-		'''
-		#cluster,_ = vq(data,centers)
-		#print(centers)
-		#print()
-		'''
 		iter_num = iter_num + 1
 	
 	return centers
@@ -102,7 +90,7 @@ def get_distance(ADs, location_index):
 # 对比找到距离query最近的几个center
 # 这些center中包含的向量数量大于等于T
 # 输出所有包含在内的向量
-# 对每一个quert执行以上操作之后整合为一个列表
+# 对每一个query执行以上操作之后整合为一个列表
 # codebooks.shape(2, 256, 64), codes.shape(768, 2)
 def query(queries, codebooks, codes, T):
 	
@@ -123,11 +111,9 @@ def query(queries, codebooks, codes, T):
 		ADs = []
 		# caculate distance for P parts
 		for i in range(P):
-			query_part = query_parts[i]
-			AD_part = []
-			for j in range(K):
-				AD_part.append([j, L1_dis(query_part, codebooks[i][j])])
-			
+			index = [num for num in range(K)]
+			distance = cdist(codebooks[i], [query_parts[i]], 'cityblock')
+			AD_part = [[index[i], distance[i][0]] for i in range(K)]
 			AD_part.sort(key = return_distance)
 			ADs.append(AD_part)
 		
