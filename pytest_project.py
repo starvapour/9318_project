@@ -118,7 +118,7 @@ def query(queries, codebooks, codes, T):
 			ADs.append(AD_part)
 		
 		# use location_index to make the current location index in each AD
-		location_index = [0 for i in range(P)]
+		location_index = np.zeros(P, dtype=int)
 		
 		# store information like [[location_index, distance]] in location_index_stack
 		location_index_stack = [[location_index, get_distance(ADs, location_index)]]
