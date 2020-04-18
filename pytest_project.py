@@ -9,52 +9,12 @@ from scipy.cluster.vq import vq
 from scipy.spatial.distance import cdist
 
 # --------------------- Part 1 ---------------------
-'''
-# caculate L1 distance
-def L1_dis(v1, v2):
-	return np.linalg.norm(v1-v2,ord=1)
-'''
-	
-# kmeans function, use L1 distance
-def kmeans(data, K, max_iter, centers):
-	iter_num = 0
-	v_num = data.shape[0]
-	change_exist = True
-	
-	# for each iter
-	while iter_num <= max_iter and change_exist == True:
-		#print("开始第",iter_num,"次迭代")
-		change_exist = False
-		# store all the vector's cluster result
-		clusters = [[] for _ in range(K)]
-		
-		# find the nearest center for each vector
-		# then add vector into cluster
-		for vector in data:
-			#print(centers.shape)
-			distances = cdist(centers, [vector], 'cityblock')
-			cluster_num = np.unravel_index(np.argmin(distances),distances.shape)[0]
-			# after get the final cluster_num
-			clusters[cluster_num].append(vector)
-		
-		# caculate new centers
-		for i in range(K):
-			if len(clusters[i]) != 0:
-				# 暂时使用平均数更新质心，不确定是否要改用中位数
-				new_center = np.mean(clusters[i],axis = 0)
-				if not (new_center == centers[i]).all():
-					centers[i] = new_center
-					change_exist = True
-		iter_num = iter_num + 1
-	
-	return centers
 
 # data NxM, N个向量，M维
 # 分成p块
 # 【P,K,M/P】，K是256，将K，M/P作为初始质心
 # 最大迭代次数上限
 def pq(data, P, init_centroids, max_iter):
-	#data = whiten(data)
 	N, M = data.shape
 	K = init_centroids.shape[1]
 	
@@ -63,9 +23,45 @@ def pq(data, P, init_centroids, max_iter):
 	data_parts=np.hsplit(data, [i * step for i in range(1,P)])
 	codebooks = np.empty(init_centroids.shape, dtype = "float32")
 	codes = np.empty([P, N], dtype = "uint8")
-	# do k_means for each part
+	# do cluster for each part
 	for i in range(len(data_parts)):
-		centers = kmeans(data_parts[i],K,max_iter,init_centroids[i])
+		data = data_parts[i]
+		centers = init_centroids[i]
+		# start cluster
+		iter_num = 0
+		v_num = data.shape[0]
+		change_exist = True
+		
+		# for each iter
+		while iter_num <= max_iter and change_exist == True:
+			#print("开始第",iter_num,"次迭代")
+			change_exist = False
+			# store all the vector's cluster result
+			clusters = [[] for _ in range(K)]
+			
+			# find the nearest center for each vector
+			# then add vector into cluster
+			for vector in data:
+				#print(centers.shape)
+				distances = cdist(centers, [vector], 'cityblock')
+				cluster_num = np.unravel_index(np.argmin(distances),distances.shape)[0]
+				# after get the final cluster_num
+				clusters[cluster_num].append(vector)
+			
+			# caculate new centers
+			for j in range(K):
+				if len(clusters[j]) != 0:
+					# use K-medoids to update the centers
+					# the i element in sum_dis_list means the sum of distance of all points from point i
+					sum_dis_list = [sum(cdist(clusters[j], [point], 'cityblock'))[0] for point in clusters[j]]
+					min_num = sum_dis_list.index(min(sum_dis_list))
+					new_center = clusters[j][sum_dis_list.index(min(sum_dis_list))]			
+					if not (new_center == centers[j]).all():
+						centers[j] = new_center
+						change_exist = True
+			iter_num = iter_num + 1
+		
+		# end kmeans, get centers
 		codebooks[i] = centers
 		cluster,_ = vq(data_parts[i],centers)
 		codes[i] = cluster
@@ -75,10 +71,7 @@ def pq(data, P, init_centroids, max_iter):
 
 # --------------------- Part 2 ---------------------
 
-# return the distance for list sort
-def return_distance(dis_list):
-	return dis_list[1]
-
+'''
 # get location in ADs from location_index
 def get_location(ADs, location_index):
 	return [ADs[i][location_index[i]][0] for i in range(len(location_index))]
@@ -86,7 +79,7 @@ def get_location(ADs, location_index):
 # get distance in ADs from location_index
 def get_distance(ADs, location_index):
 	return sum([ADs[i][location_index[i]][1] for i in range(len(location_index))])
-
+'''
 # 对比找到距离query最近的几个center
 # 这些center中包含的向量数量大于等于T
 # 输出所有包含在内的向量
@@ -121,10 +114,9 @@ def query(queries, codebooks, codes, T):
 		location_index = np.zeros(P, dtype=int)
 		
 		# store information like [[location_index, distance]] in location_index_stack
-		location_index_stack = [[location_index, get_distance(ADs, location_index)]]
-		
+		location_index_stack = [[location_index, sum([ADs[i][location_index[i]][1] for i in range(len(location_index))]) ]]
 		# add candidate points of first location
-		first_location = get_location(ADs, location_index)
+		first_location = [ADs[i][location_index[i]][0] for i in range(len(location_index))]
 		for i in range(len(codes)):
 			if (first_location == codes[i]).all():
 				candidate_points.add(i)
@@ -142,19 +134,22 @@ def query(queries, codebooks, codes, T):
 				if K > location_index[i] + 1:
 					temp_index = location_index.copy()
 					temp_index[i] = temp_index[i] + 1
-					temp_distance = get_distance(ADs, temp_index)
-					# add the data into location_index_stack by order
-					add_success = False
-					for j in range(len(location_index_stack)-1,-1,-1):
-						if temp_distance > location_index_stack[j][1]:
-							location_index_stack.insert(j+1, [temp_index, temp_distance])
-							add_success = True
-							break
-					# if it needs to be added to the first place
-					if add_success == False:
-						location_index_stack.insert(0, [temp_index, temp_distance])				
+					temp_distance = sum([ADs[i][temp_index[i]][1] for i in range(len(temp_index))])
+					#print(type(location_index_stack))
+					#if [temp_index, temp_distance] not in location_index_stack:-----------------判断是否已存在，尝试vstack，尚未完成-----------------------------------------
+					if True:
+						# add the data into location_index_stack by order
+						add_success = False
+						for j in range(len(location_index_stack)-1,-1,-1):
+							if temp_distance > location_index_stack[j][1]:
+								location_index_stack.insert(j+1, [temp_index, temp_distance])
+								add_success = True
+								break
+						# if it needs to be added to the first place
+						if add_success == False:
+							location_index_stack.insert(0, [temp_index, temp_distance])				
 			# find points match the location
-			temp_location = get_location(ADs, location_index_stack[0][0])
+			temp_location = [ADs[i][location_index_stack[0][0][i]][0] for i in range(len(location_index_stack[0][0]))]
 			for i in range(len(codes)):
 				if (temp_location == codes[i]).all():
 					candidate_points.add(i)
@@ -206,3 +201,89 @@ print("第二阶段用时：",time_cost_2,"秒")
 print("最后输出为",candidates)
 print("期望输出为","[{3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14}]")
 
+'''
+# 来自论坛的额外测试
+P=4
+
+K=3
+
+data = [[ 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7,], \
+[ 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7,], \
+[ 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7,], \
+[ 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7,], \
+[ 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7,], \
+[ 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7,], \
+[ 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7,], \
+[ 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7,], \
+[ 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7,], \
+[ 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10,], \
+[ 13, 13, 13, 13, 13, 13, 13, 13, 13, 13, 13, 13,], \
+[ 13, 13, 13, 13, 13, 13, 13, 13, 13, 13, 13, 13,], \
+[ 13, 13, 13, 13, 13, 13, 13, 13, 13, 13, 13, 13,], \
+[ 13, 13, 13, 13, 13, 13, 13, 13, 13, 13, 13, 13,], \
+[ 13, 13, 13, 13, 13, 13, 13, 13, 13, 13, 13, 13,], \
+[ 13, 13, 13, 13, 13, 13, 13, 13, 13, 13, 13, 13,], \
+[ 13, 13, 13, 13, 13, 13, 13, 13, 13, 13, 13, 13,], \
+[ 13, 13, 13, 13, 13, 13, 13, 13, 13, 13, 13, 13,], \
+[ 13, 13, 13, 13, 13, 13, 13, 13, 13, 13, 13, 13,], \
+[ 13, 13, 13, 13, 13, 13, 13, 13, 13, 13, 13, 13,], \
+[ 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90,], \
+[ 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90,], \
+[ 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90,], \
+[ 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90,], \
+[ 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90,], \
+[ 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90,], \
+[ 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90,], \
+[ 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90,], \
+[ 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90,], \
+[ 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100,], \
+[ 110, 110, 110, 110, 110, 110, 110, 110, 110, 110, 110, 110,], \
+[ 110, 110, 110, 110, 110, 110, 110, 110, 110, 110, 110, 110,], \
+[ 110, 110, 110, 110, 110, 110, 110, 110, 110, 110, 110, 110,], \
+[ 110, 110, 110, 110, 110, 110, 110, 110, 110, 110, 110, 110,], \
+[ 110, 110, 110, 110, 110, 110, 110, 110, 110, 110, 110, 110,], \
+[ 110, 110, 110, 110, 110, 110, 110, 110, 110, 110, 110, 110,], \
+[ 110, 110, 110, 110, 110, 110, 110, 110, 110, 110, 110, 110,], \
+[ 110, 110, 110, 110, 110, 110, 110, 110, 110, 110, 110, 110,], \
+[ 110, 110, 110, 110, 110, 110, 110, 110, 110, 110, 110, 110,], \
+[ 110, 110, 110, 110, 110, 110, 110, 110, 110, 110, 110, 110,], \
+[ 990, 990, 990, 990, 990, 990, 990, 990, 990, 990, 990, 990,], \
+[ 990, 990, 990, 990, 990, 990, 990, 990, 990, 990, 990, 990,], \
+[ 990, 990, 990, 990, 990, 990, 990, 990, 990, 990, 990, 990,], \
+[ 990, 990, 990, 990, 990, 990, 990, 990, 990, 990, 990, 990,], \
+[ 990, 990, 990, 990, 990, 990, 990, 990, 990, 990, 990, 990,], \
+[ 990, 990, 990, 990, 990, 990, 990, 990, 990, 990, 990, 990,], \
+[ 990, 990, 990, 990, 990, 990, 990, 990, 990, 990, 990, 990,], \
+[ 990, 990, 990, 990, 990, 990, 990, 990, 990, 990, 990, 990,], \
+[ 990, 990, 990, 990, 990, 990, 990, 990, 990, 990, 990, 990,], \
+[1000, 1000, 1000, 1000, 1000, 1000, 1000, 1000, 1000, 1000, 1000, 1000,], \
+[1010, 1010, 1010, 1010, 1010, 1010, 1010, 1010, 1010, 1010, 1010, 1010,], \
+[1010, 1010, 1010, 1010, 1010, 1010, 1010, 1010, 1010, 1010, 1010, 1010,], \
+[1010, 1010, 1010, 1010, 1010, 1010, 1010, 1010, 1010, 1010, 1010, 1010,], \
+[1010, 1010, 1010, 1010, 1010, 1010, 1010, 1010, 1010, 1010, 1010, 1010,], \
+[1010, 1010, 1010, 1010, 1010, 1010, 1010, 1010, 1010, 1010, 1010, 1010,], \
+[1010, 1010, 1010, 1010, 1010, 1010, 1010, 1010, 1010, 1010, 1010, 1010,], \
+[1010, 1010, 1010, 1010, 1010, 1010, 1010, 1010, 1010, 1010, 1010, 1010,], \
+[1010, 1010, 1010, 1010, 1010, 1010, 1010, 1010, 1010, 1010, 1010, 1010,], \
+[1010, 1010, 1010, 1010, 1010, 1010, 1010, 1010, 1010, 1010, 1010, 1010,], \
+[1010, 1010, 1010, 1010, 1010, 1010, 1010, 1010, 1010, 1010, 1010, 1010,]]
+
+init_centroids = np.empty((P,K+1,3), dtype = "float32")
+for p in range(P):
+	
+	#k = 0 is useless centroid
+	init_centroids[p,0]= [10000,10000,10000]
+	
+	#k = 1 is at 9
+	init_centroids[p,1]= [9,9,9]
+	
+	#k = 2 is at 99
+	init_centroids[p,2]= [99,99,99]
+	
+	#k = 3 is at 1001
+	init_centroids[p][3]= [1001,1001,1001]
+data = np.array(data)
+codebooks, codes = pq(data, P=P, init_centroids=init_centroids, max_iter = 20)
+print(codebooks)
+print(codes)
+'''
