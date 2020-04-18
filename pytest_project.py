@@ -61,9 +61,10 @@ def pq(data, P, init_centroids, max_iter):
 						change_exist = True
 			iter_num = iter_num + 1
 		
-		# end kmeans, get centers
+		# end K-medoids, get centers
 		codebooks[i] = centers
-		cluster,_ = vq(data_parts[i],centers)
+		# final cluster
+		cluster = [np.argmin(cdist(centers, [data], 'cityblock')) for data in data_parts[i]]
 		codes[i] = cluster
 	
 	codes = np.dstack(codes)[0]
