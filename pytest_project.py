@@ -30,12 +30,10 @@ def pq(data, P, init_centroids, max_iter):
 		# start cluster
 		iter_num = 0
 		v_num = data.shape[0]
-		change_exist = True
 		
 		# for each iter
-		while iter_num <= max_iter and change_exist == True:
+		while iter_num < max_iter:
 			#print("开始第",iter_num,"次迭代")
-			change_exist = False
 			# store all the vector's cluster result
 			clusters = [[] for _ in range(K)]
 			
@@ -54,11 +52,9 @@ def pq(data, P, init_centroids, max_iter):
 					# use K-medoids to update the centers
 					# the i element in sum_dis_list means the sum of distance of all points from point i
 					sum_dis_list = [sum(cdist(clusters[j], [point], 'cityblock'))[0] for point in clusters[j]]
-					min_num = sum_dis_list.index(min(sum_dis_list))
-					new_center = clusters[j][sum_dis_list.index(min(sum_dis_list))]			
-					if not (new_center == centers[j]).all():
-						centers[j] = new_center
-						change_exist = True
+					# chose the point which have min sum distance as the new center
+					new_center = clusters[j][np.argmin(sum_dis_list)]		
+					centers[j] = new_center
 			iter_num = iter_num + 1
 		
 		# end K-medoids, get centers
@@ -67,6 +63,7 @@ def pq(data, P, init_centroids, max_iter):
 		cluster = [np.argmin(cdist(centers, [data], 'cityblock')) for data in data_parts[i]]
 		codes[i] = cluster
 	
+	# reshape codes
 	codes = np.dstack(codes)[0]
 	return codebooks, codes
 
