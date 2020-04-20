@@ -78,6 +78,7 @@ def get_location(ADs, location_index):
 def get_distance(ADs, location_index):
 	return sum([ADs[i][location_index[i]][1] for i in range(len(location_index))])
 '''
+
 # 对比找到距离query最近的几个center
 # 这些center中包含的向量数量大于等于T
 # 输出所有包含在内的向量
@@ -115,10 +116,17 @@ def query(queries, codebooks, codes, T):
 		location_index_stack = [[location_index, sum([ADs[i][location_index[i]][1] for i in range(len(location_index))]) ]]
 		# add candidate points of first location
 		first_location = [ADs[i][location_index[i]][0] for i in range(len(location_index))]
+		
+		# location_already_visit use 0 and 1
+		# 0 means the location_index in data have not been used
+		location_index_already_visit = np.zeros([K for num in range(P)], dtype = "uint8")
+		
 		for i in range(len(codes)):
 			if (first_location == codes[i]).all():
 				candidate_points.add(i)
-		
+		# set the first location index as 1
+		location_index_already_visit[np.ix_(*np.vstack(location_index))] = 1
+				
 		# in each iteration
 		# 1. pop location_index_stack[0] and add 1 to each number of the index in location_index_stack[0]
 		# 2. then caculate their distance add these data into location_index_stack[0]]
@@ -134,8 +142,8 @@ def query(queries, codebooks, codes, T):
 					temp_index[i] = temp_index[i] + 1
 					temp_distance = sum([ADs[i][temp_index[i]][1] for i in range(len(temp_index))])
 					#print(type(location_index_stack))
-					#if [temp_index, temp_distance] not in location_index_stack:-----------------判断是否已存在，尝试vstack，尚未完成-----------------------------------------
-					if True:
+					#if the location index has not been added
+					if int(location_index_already_visit[np.ix_(*np.vstack(temp_index))]) == 0:
 						# add the data into location_index_stack by order
 						add_success = False
 						for j in range(len(location_index_stack)-1,-1,-1):
@@ -146,8 +154,10 @@ def query(queries, codebooks, codes, T):
 						# if it needs to be added to the first place
 						if add_success == False:
 							location_index_stack.insert(0, [temp_index, temp_distance])				
-			# find points match the location
+						# set the location index as already added
+						location_index_already_visit[np.ix_(*np.vstack(temp_index))] = 1
 			temp_location = [ADs[i][location_index_stack[0][0][i]][0] for i in range(len(location_index_stack[0][0]))]
+			# find points match the location
 			for i in range(len(codes)):
 				if (temp_location == codes[i]).all():
 					candidate_points.add(i)
