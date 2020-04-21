@@ -50,7 +50,7 @@ def pq(data, P, init_centroids, max_iter):
 			for j in range(K):
 				if len(clusters[j]) != 0:
 					# use k-median to update the centers
-					centers[j] = np.median(clusters[j])
+					centers[j] = np.median(clusters[j], axis = 0)
 			iter_num = iter_num + 1
 		
 		# end k-median, get centers
@@ -205,7 +205,7 @@ print("第二阶段用时：",time_cost_2,"秒")
 print("最后输出为",candidates)
 print("期望输出为","[{3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14}]")
 
-
+'''
 # 来自论坛的额外测试
 P=4
 
@@ -290,3 +290,4 @@ data = np.array(data)
 codebooks, codes = pq(data, P=P, init_centroids=init_centroids, max_iter = 20)
 print(codebooks)
 print(codes)
+'''
