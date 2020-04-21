@@ -53,7 +53,7 @@ def pq(data, P, init_centroids, max_iter):
 					centers[j] = np.median(clusters[j])
 			iter_num = iter_num + 1
 		
-		# end K-medoids, get centers
+		# end k-median, get centers
 		codebooks[i] = centers
 		# final cluster
 		cluster = [np.argmin(cdist(centers, [data], 'cityblock')) for data in data_parts[i]]
@@ -205,7 +205,7 @@ print("第二阶段用时：",time_cost_2,"秒")
 print("最后输出为",candidates)
 print("期望输出为","[{3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14}]")
 
-'''
+
 # 来自论坛的额外测试
 P=4
 
@@ -290,4 +290,3 @@ data = np.array(data)
 codebooks, codes = pq(data, P=P, init_centroids=init_centroids, max_iter = 20)
 print(codebooks)
 print(codes)
-'''
