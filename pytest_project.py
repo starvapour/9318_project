@@ -49,12 +49,8 @@ def pq(data, P, init_centroids, max_iter):
 			# caculate new centers
 			for j in range(K):
 				if len(clusters[j]) != 0:
-					# use K-medoids to update the centers
-					# the i element in sum_dis_list means the sum of distance of all points from point i
-					sum_dis_list = [sum(cdist(clusters[j], [point], 'cityblock'))[0] for point in clusters[j]]
-					# chose the point which have min sum distance as the new center
-					new_center = clusters[j][np.argmin(sum_dis_list)]		
-					centers[j] = new_center
+					# use k-median to update the centers
+					centers[j] = np.median(clusters[j])
 			iter_num = iter_num + 1
 		
 		# end K-medoids, get centers
