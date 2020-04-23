@@ -29,7 +29,6 @@ def pq(data, P, init_centroids, max_iter):
 		centers = init_centroids[i]
 		# start cluster
 		iter_num = 0
-		v_num = data.shape[0]
 		
 		# for each iter
 		while iter_num < max_iter:
@@ -87,6 +86,19 @@ def query(queries, codebooks, codes, T):
 	_, M = queries.shape
 	P, K, _ = codebooks.shape
 	# print(M, P, K) get 128 2 256
+	
+	# create inverted index
+	# inverted index is a dict with {(location), {v_index}}
+	inverted_index = {}
+	for i in range(codes.shape[0]):
+		location = tuple(codes[i])
+		if location not in inverted_index:
+			inverted_index[location] = {i}
+		else:
+			inverted_index[location].add(i)
+	
+	#print(inverted_index)
+		
 	# for each query
 	for query in queries:
 		candidate_points = set()
@@ -111,15 +123,15 @@ def query(queries, codebooks, codes, T):
 		# store information like [[location_index, distance]] in location_index_stack
 		location_index_stack = [[location_index, sum([ADs[i][location_index[i]][1] for i in range(len(location_index))]) ]]
 		# add candidate points of first location
-		first_location = [ADs[i][location_index[i]][0] for i in range(len(location_index))]
+		first_location = tuple([ADs[i][location_index[i]][0] for i in range(len(location_index))])
 		
 		# location_already_visit use 0 and 1
 		# 0 means the location_index in data have not been used
 		location_index_already_visit = np.zeros([K for num in range(P)], dtype = "uint8")
 		
-		for i in range(len(codes)):
-			if (first_location == codes[i]).all():
-				candidate_points.add(i)
+		if first_location in inverted_index:
+			candidate_points = candidate_points | inverted_index[first_location]
+		
 		# set the first location index as 1
 		location_index_already_visit[np.ix_(*np.vstack(location_index))] = 1
 				
@@ -152,11 +164,10 @@ def query(queries, codebooks, codes, T):
 							location_index_stack.insert(0, [temp_index, temp_distance])				
 						# set the location index as already added
 						location_index_already_visit[np.ix_(*np.vstack(temp_index))] = 1
-			temp_location = [ADs[i][location_index_stack[0][0][i]][0] for i in range(len(location_index_stack[0][0]))]
+			temp_location = tuple([ADs[i][location_index_stack[0][0][i]][0] for i in range(len(location_index_stack[0][0]))])
 			# find points match the location
-			for i in range(len(codes)):
-				if (temp_location == codes[i]).all():
-					candidate_points.add(i)
+			if temp_location in inverted_index:
+				candidate_points = candidate_points | inverted_index[temp_location]
 		# end this query
 		candidates.append(candidate_points)
 	
@@ -194,6 +205,8 @@ print("第一阶段用时：",time_cost_1,"秒")
 with open('./toy_example/Query_File', 'rb') as f:
 	Query_File = pickle.load(f, encoding = 'bytes')
 queries = Query_File
+# just for test
+# queries = np.array([queries[0] for i in range(100)])
 start = time.time()
 # queries is [[9. 9. 9. ... 9. 9. 9.]]
 candidates = query(queries, codebooks, codes, T=10)
